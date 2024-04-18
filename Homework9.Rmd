@@ -1,0 +1,173 @@
+---
+title: "Naomi Struble, nas4252"
+output:  html_document
+date: "2024-04-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+turnout <- read.csv('turnout.csv')
+solder <- read.csv('solder.csv')
+library(mosaic)
+library(MatchIt)
+library(ggplot2)
+library(kableExtra)
+library(tableone)
+```
+Github link: 
+
+---
+
+### **Problem 1:**
+#### Part A:
+
+```{r, echo=FALSE, results='hide'}
+#Calculate Proportions
+prop_voters1 <- mean(turnout$GOTV_call == 1 & turnout$voted1998 == 1)
+print(prop_voters1)
+
+prop_voters2 <- mean(turnout$GOTV_call != 1 & turnout$voted1998 == 1)
+print(prop_voters2)
+
+#Difference and Relative Likelihood
+diff_voters = prop_voters1 - prop_voters2
+
+likely_voters = prop_voters1 / prop_voters2
+
+#Proportion Function For Confidence Interval
+diffprop_voters <- function(turnout) {
+  prop_voters1 <- mean(turnout$GOTV_call == 1 & turnout$voted1998 == 1)
+  prop_voters2 <- mean(turnout$GOTV_call != 1 & turnout$voted1998 == 1)
+  return(prop_voters1 - prop_voters2)
+}
+
+#Confidence Interval
+boot_voters_1998 = do(10000)*diffprop_voters(resample(turnout))
+confint(boot_voters_1998, level = .95)
+```
+
+Through the preliminary analysis, there have been several key discoveries. For instance, the proportion of voters in 1998 who did not receive a call from the government is higher than those who did receive a call. In fact, the proportion of those who received a call is `r round(mean(turnout$GOTV_call == 1 & turnout$voted1998 == 1), digits=3)` and the proportion of those who didn't is `r round(mean(turnout$GOTV_call != 1 & turnout$voted1998 == 1), digits=3)`. Additionally, the results from the confidence interval show that there is a difference in the proportion of voters who received a GOTV call versus those who didn’t between -.429 and .410, with 95% confidence. Through these results, it can be concluded that individuals who received a governmnet call were .034 times more likely to voted in 1998.
+
+#### Part B: 
+
+```{r, echo=FALSE, results='hide'}
+#Create Different Linear Models to Compare Differences
+baseline_model <- lm(voted1998 ~ GOTV_call, data = turnout)
+confounder_model <- lm(voted1998 ~ GOTV_call + voted1996 + AGE + MAJORPTY, data = turnout)
+
+summary(baseline_model)
+summary(confounder_model)
+
+summary(baseline_model)$adj.r.squared
+summary(confounder_model)$adj.r.squared
+```
+
+By analyzing the summary statistics of two different linear models, one including government calls as the predictor and the other includes government call, voters in 1996, age of voters, and whether the voters are registered under either major US political party as the predictors. There is evidence that the three additional predictors are confounding variables. This is evident for multiple reasons. First, the coefficient estimate for government calls decreased from .2035 to .0967 after the additional variables are counted. Additionally, the the p-value for government calls in the second model is statistically significant, demonstrating that government calls have a strong association with the likelihood of voting in 1996. Another piece of evidence is that the second model has more variability in whether individuals voted compared to the first. This is revealed through the r squared model increaseng from .0037 to .2006 between the two models. Due to these several key piecees of evidence, it can be concluded that age, whether someone voted, and whether they are registered to one of the main political parties are all confounding variables.
+
+#### Part C:
+ 
+```{r, echo=FALSE, results='hide', warning=FALSE}
+#MATCH DATA
+matched_data <- matchit(GOTV_call ~ voted1996 + AGE + MAJORPTY, data = turnout, ratio = 5)
+matched_data <- match.data(matched_data)
+
+b4_balance <- CreateTableOne(vars = c("voted1996", "AGE", "MAJORPTY", "voted 1998"), data = turnout)
+after_turnout <- CreateTableOne(vars = c("voted1996", "AGE", "MAJORPTY", "voted 1998"), strata = "GOTV_call", data = matched_data)
+
+#PROVE IT
+prop_1 <- mean(matched_data$GOTV_call == 1 & matched_data$voted1998 == 1)
+prop_2 <- mean(matched_data$GOTV_call != 1 & matched_data$voted1998 == 1)
+prop_3 = prop_1 - prop_2
+
+diff_voters <- function(matched_data) {
+  prop_1 <- mean(matched_data$GOTV_call == 1 & matched_data$voted1998 == 1)
+  prop_2 <- mean(matched_data$GOTV_call != 1 & matched_data$voted1998 == 1)
+  return(prop_1 - prop_2)
+}
+
+boot_voters_1998 = do(10000)*diffprop_voters(resample(matched_data))
+confint(boot_voters_1998, level = .95)
+```
+
+By creating a matched data set, the effect of confounding variables is limited. In this specific example, there are three confounders that were matched: whether a person voted in 1996, the age of voters, and whether the person is registered as a member of either one of the two major US political parties. In creating a matched data set, new discoveries were able to be concluded. For instance, receiving a government call has a high association with the likeliness of voting in 1998. Individuals who received a call were .65 times more likely to vote. Furthermore, the difference in the two proportions (those who received a call and voted versus those who didn't receive a call but still voted) varies between -.404 to -.336 with 95% confidence. Since the entirety of the interval is negative and doesn't include zero, it can be said that there is a statistically significant difference between the two groups of individuals. 
+ 
+---
+
+### **Problem 2**
+#### Part A:  
+
+```{r, echo=FALSE}
+#FIRST PLOT
+ggplot(solder, aes(x = Opening, y = skips)) +
+  geom_point(color = "magenta4") +
+  labs(title = "Relationship between Opening Size and Number of Skips",
+       x = "Size of Opening on Solder Gun",
+       y = "Number of Skips") +
+  theme_classic()
+```
+
+The plot above demonstrates the relationship between the number of skips and the opening size. The graph demonstrates that there is an inverse relationship between the two variables, for the smaller the opening size, the larger the number of skips. 
+
+```{r, echo=FALSE}
+#SECOND PLOT
+ggplot(solder, aes(x = Solder, y = skips)) +
+  geom_point(color = "coral3") +
+  labs(title = "Relationship between Thickness of the Alloy and Number of Skips",
+       x = "Thickness of the Alloy Used",
+       y = "Number of Skips") +
+  theme_classic()
+```
+
+The plot above reflects the relationship between the number of skips and the allow thickness. As shown, the more thin the alloy used is, the higher the number of skips. 
+
+#### Part B:
+
+```{r, echo=FALSE, results='hide'}
+regression <- lm(skips ~ Opening * Solder, data = solder)
+coefficients <- summary(regression)$coefficients
+conf_int <- confint(regression)
+reg_table <- data.frame(
+  Coefficient = rownames(coefficients),
+  Estimate = coefficients[, 1],
+  Lower_CI = conf_int[, 1],
+  Upper_CI = conf_int[, 2]
+)
+
+print(reg_table)
+
+```
+
+```{r, echo=FALSE}
+kable_styling(
+  kable(
+    reg_table,
+    format = "html",
+    align = "c",
+    digits = 3,
+    escape = FALSE,
+    booktabs = TRUE,
+    linesep = ""
+  ),
+  position = "center",
+  latex_options = "hold_position"
+)
+```
+
+
+#### Part C: 
+
+Intercept: This value is the baseline, allowing us to compare any changes made towards the predictors. The table shows how the estimate is approximately .393 and the value occurs in the confidence interval from -.63 to 1.41, with 95% confidence. 
+
+Medium Opening: This outcome variable will occur between the interval .96 to 3.85, with 95% confidence. Although the specific estimate is 2.4.
+
+Small Opening: This specific outcome variable can be said to occur in the interval 3.68 to 6.57 with 95% confidence. Although more specifically, the estimate is 5.12.
+
+Thin Solder: This outcome variable will occur between the interval .84 to 3.72, with 95% confidence. Although the specific estimate is 2.28.
+
+Medium Opening and Thin Solder: This represents the change in medium opening when thin solder increases by 1 unit. The value interval that occurs in the relationship between the two variables is between -2.78 and 1.30, with 95% confidence. Additionally, when analyzing the two variables further, the estimate coefficient is .74. This value refelects the relationship thin solder has on the reactivity of medium openings. 
+
+Small Opening and Thin Solder: Similarly, this represents the change in small openings when thin solder increases by one unit. The value interval that occurs in the relationship between the two variables is 7.61 to 11.70, with 95% confidence. Furthermore, there is an estimate coefficient of 9.65, which represents how reactive the small openings are to the increse of thin solder. 
+
+#### Part D:
+
+I would recommend the large opening and thick solder to AT&T for a one main reasons. The first is that the large opening reduces the number of skips needed, especially when compared to Opening M. Additionally, thick solder also minimizes the number of skips needed. As a result, there will be significantly less skips needed when applying solder. 
